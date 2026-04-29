@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="7.0" 
+    ExtensionBundleId="com.moonlight.soundmanager" 
+    ExtensionBundleVersion="0.1.0" 
+    ExtensionBundleName="Sound Manager" 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    
+    <AuthorList>
+        <Author>Moonlight</Author>
+    </AuthorList>
+    
+    <ContactList>
+        <Contact Email="haidangtr.contact@gmail.com" />
+    </ContactList>
+    
+    <LegalInfo>
+        <Copyright>Copyright 2026</Copyright>
+    </LegalInfo>
+    
+    <HostList>
+        <Host Name="PPRO" Version="[11.0,99.9]" />
+    </HostList>
+    
+    <ExtensionList>
+        <Extension Id="com.moonlight.soundmanager.panel" Version="0.1.0" />
+    </ExtensionList>
+    
+    <DispatchInfoList>
+        <Extension Id="com.moonlight.soundmanager.panel">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./index.html</MainPath>
+                    <ScriptPath>./jsx/hostscript.jsx</ScriptPath>
+                    <CEFCommandLine>
+                        <Parameter>--allow-file-access-from-files</Parameter>
+                        <Parameter>--allow-file-access</Parameter>
+                    </CEFCommandLine>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>Sound Manager v0.1a</Menu>
+                    <Geometry>
+                        <Size>
+                            <Width>300</Width>
+                            <Height>600</Height>
+                        </Size>
+                    </Geometry>
+                    <Icons>
+                        </Icons>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>

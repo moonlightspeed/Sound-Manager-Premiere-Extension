@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@extendscript/csinterface": "^1.0.1",
+    "wavesurfer.js": "^7.12.6"
+  }
+}
