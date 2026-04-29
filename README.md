@@ -30,7 +30,7 @@ Clone the repository and install **Wavesurfer.js** (required for the waveform di
 ```bash
 git clone https://github.com/moonlightspeed/Sound-Manager-Premiere-Extension.git
 cd Sound-Manager-Premiere-Extension
-npm install
+npm install --save wavesurfer.js
 ```
 
 Note: This will create the node_modules/ folder which contains the necessary Wavesurfer files referenced in index.html
