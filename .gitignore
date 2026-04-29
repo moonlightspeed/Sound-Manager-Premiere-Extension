@@ -1,17 +1,8 @@
-# Chứa thư viện tải về (Nặng, không đẩy lên Git)
 node_modules/
-
-# File debug của Adobe (Gây lỗi khi đóng gói ZXP)
 .debug
-
-# Các file cài đặt và thư mục build
 *.zxp
 Deploy/
 TempBuild/
-
-# File rác của hệ điều hành
 .DS_Store
 Thumbs.db
-
-# Chứng chỉ cá nhân (Bảo mật, đừng đẩy lên)
 *.p12
