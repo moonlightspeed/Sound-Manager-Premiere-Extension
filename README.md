@@ -35,7 +35,7 @@ npm install
 
 Note: This will create the node_modules/ folder which contains the necessary Wavesurfer files referenced in index.html
 
-# 3. Creating a Self-Signed Certificate
+### 3. Creating a Self-Signed Certificate
 
 If you don't have a .p12 certificate yet, create one:
 
@@ -43,7 +43,7 @@ If you don't have a .p12 certificate yet, create one:
 ZXPSignCmd -selfSignedCert yourcountry yourcity "YourName" "YourPassword" cert.p12
 ```
 
-# 4. Building the ZXP Package
+### 4. Building the ZXP Package
 
 IMPORTANT: Since node_modules is ignored by Git, you must ensure the specific wavesurfer.min.js file is included in your Deploy folder before signing.
 
@@ -60,13 +60,13 @@ copy node_modules\wavesurfer.js\dist\wavesurfer.min.js Deploy\node_modules\waves
 ZXPSignCmd -sign ./Deploy Sound_Manager.zxp cert.p12 "YourPassword" -tsa [http://timestamp.digicert.com](http://timestamp.digicert.com)
 ```
 
-# 6. Search Syntax Guide
+### 5. Search Syntax Guide
 
 - Use these prefixes in the search bar for better results:
 - tag:"wind, rain" : Finds files that have these specific tags.
 - only:"whoosh" : Finds files where the name or tag is EXACTLY "whoosh".
 - exp:"metal" : Excludes any files containing the word "metal".
 
-# License
+### 6. License
 
 This project is licensed under the GNU GPLv3. See the LICENSE file for details.
