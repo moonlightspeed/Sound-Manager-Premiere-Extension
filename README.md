@@ -60,13 +60,13 @@ copy node_modules\wavesurfer.js\dist\wavesurfer.min.js Deploy\node_modules\waves
 ZXPSignCmd -sign ./Deploy Sound_Manager.zxp cert.p12 "YourPassword" -tsa [http://timestamp.digicert.com](http://timestamp.digicert.com)
 ```
 
-### 5. Search Syntax Guide
+## 5. Search Syntax Guide
 
 - Use these prefixes in the search bar for better results:
 - tag:"wind, rain" : Finds files that have these specific tags.
 - only:"whoosh" : Finds files where the name or tag is EXACTLY "whoosh".
 - exp:"metal" : Excludes any files containing the word "metal".
 
-### 6. License
+## 6. License
 
 This project is licensed under the GNU GPLv3. See the LICENSE file for details.
