@@ -14,7 +14,7 @@ A minimalist, high-performance sound effects manager extension for Adobe Premier
 
 1. Download the latest `Sound_Manager.zxp` from the [Releases](https://github.com/moonlightspeed/Sound-Manager-Premiere-Extension/releases) page.
 2. Install it using [Anastasiy's Extension Manager](https://install.anastasiy.com/) (Recommended) or any zxp installer you think it may work :))
-3. Open Premiere Pro and go to **Window > Extensions > SFX Manager v0.1a**.
+3. Open Premiere Pro and go to **Window > Extensions > Sound Manager**.
 
 ## Development & Building (For Developers)
 
