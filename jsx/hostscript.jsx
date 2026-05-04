@@ -209,3 +209,73 @@ function renameFile(oldPath, newName) {
     return "Error: " + e.message;
   }
 }
+
+function replaceSelectedAudio(filePath) {
+  try {
+    var project = app.project;
+    if (!project) return "Error: No active project found.";
+    var seq = project.activeSequence;
+    if (!seq) return "Error: No active sequence.";
+
+    // 1. Tìm clip đang được chọn
+    var selectedClip = null;
+    var targetTrack = null;
+    for (var i = 0; i < seq.audioTracks.numTracks; i++) {
+      var track = seq.audioTracks[i];
+      for (var j = 0; j < track.clips.numItems; j++) {
+        if (track.clips[j].isSelected()) {
+          selectedClip = track.clips[j];
+          targetTrack = track;
+          break;
+        }
+      }
+      if (selectedClip) break;
+    }
+
+    if (!selectedClip)
+      return "Error: Please select an audio clip on the timeline first.";
+    if (targetTrack.isLocked()) return "Error: Target track is locked.";
+
+    // Lấy thông số In/Out của clip cũ
+    var oldStart = selectedClip.start;
+    var oldDuration = selectedClip.end.seconds - selectedClip.start.seconds;
+
+    // 2. Import file âm thanh mới
+    var importResults = project.importFiles(
+      [filePath],
+      true,
+      project.getInsertionBin(),
+      false,
+    );
+    if (!importResults) return "Error: File import failed.";
+
+    var bin = project.getInsertionBin();
+    var importedItem = null;
+    var fileName = filePath.split("\\").pop().split("/").pop();
+    for (var i = 0; i < bin.children.numItems; i++) {
+      if (bin.children[i].name === fileName) importedItem = bin.children[i];
+    }
+    if (!importedItem) return "Error: Could not find imported file.";
+
+    // 3. Cắt xén (Trim) audio mới bằng đúng độ dài clip cũ
+    importedItem.setInPoint(0, 4); // 4 = Tính theo giây
+    importedItem.setOutPoint(oldDuration, 4); // Nếu ngắn hơn nó tự hiểu, nếu dài hơn nó sẽ xén bớt
+
+    // 4. Xóa clip cũ đi (Hỗ trợ nhiều bản Premiere)
+    try {
+      selectedClip.remove(0, 0);
+    } catch (err) {
+      // Backup nếu bản Premiere cũ không hỗ trợ lệnh remove
+      try {
+        selectedClip.end = selectedClip.start;
+      } catch (err2) {}
+    }
+
+    // 5. Chèn clip mới vào đúng vị trí đó
+    targetTrack.insertClip(importedItem, oldStart);
+
+    return "Success";
+  } catch (e) {
+    return "JSX Error: " + e.message;
+  }
+}

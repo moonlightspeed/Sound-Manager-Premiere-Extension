@@ -110,7 +110,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (githubBtn) {
     githubBtn.addEventListener("click", () => {
       window.cep.util.openURLInDefaultBrowser(
-        "https://github.com/moonlightspeed/Sound-Manager-Extension-for-Premiere",
+        "https://github.com/moonlightspeed/Sound-Manager-Premiere-Extension",
       );
     });
   }
@@ -356,9 +356,12 @@ document.addEventListener("DOMContentLoaded", function () {
                   </p>
               </div>
               <div class="sfx-actions">
-                  <button id="play-${index}"><i class="fas fa-play"></i></button>
-                  <button id="stop-${index}"><i class="fas fa-stop"></i></button>
-                  <button class="btn-add" data-path="${safePath}" id="add-${index}"><i class="fas fa-plus"></i></button>
+                  <button id="play-${index}" title="Play"><i class="fas fa-play"></i></button>
+                  <button id="stop-${index}" title="Stop"><i class="fas fa-stop"></i></button>
+                  <button class="btn-add" data-path="${safePath}" id="add-${index}" title="Add to Target Track"><i class="fas fa-plus"></i></button>
+                  
+                  <button class="btn-replace" data-path="${safePath}" id="replace-${index}" title="Replace Selected Timeline Clip"><i class="fas fa-exchange-alt"></i></button>
+                  
                   <button id="more-${index}"><i class="fas fa-ellipsis-v"></i></button>
               </div>
           </div>
@@ -580,6 +583,60 @@ document.addEventListener("DOMContentLoaded", function () {
           },
         );
       });
+
+      // --- XỬ LÝ SỰ KIỆN NÚT REPLACE ---
+      const replaceBtn = item.querySelector(`#replace-${index}`);
+      if (replaceBtn) {
+        replaceBtn.addEventListener("click", () => {
+          const pathForJsx = safePath.replace(/\//g, "\\\\");
+          csInterface.evalScript(
+            `replaceSelectedAudio("${pathForJsx}")`,
+            (result) => {
+              if (result === "Success") {
+                // Tăng bộ đếm usage
+                sfxDatabase[safePath].uses += 1;
+                document.getElementById(`uses-${index}`).innerText =
+                  sfxDatabase[safePath].uses;
+
+                // Đồng bộ lại Sequence sau 1 giây
+                setTimeout(() => {
+                  csInterface.evalScript(
+                    `findSequencesForFile("${pathForJsx}")`,
+                    (seqs) => {
+                      if (seqs && !seqs.startsWith("ERR:")) {
+                        const seqArray = seqs
+                          .split(",")
+                          .filter((s) => s.trim() !== "");
+                        seqArray.forEach((s) => {
+                          if (!sfxDatabase[safePath].sequences.includes(s))
+                            sfxDatabase[safePath].sequences.push(s);
+                        });
+                        saveDB();
+                        if (settings.showSeq) {
+                          document.getElementById(
+                            `seq-${index}`,
+                          ).style.display = "inline";
+                          document.getElementById(
+                            `seq-list-${index}`,
+                          ).innerHTML = formatSequenceDisplay(
+                            sfxDatabase[safePath].sequences,
+                            sound.name,
+                          );
+                        }
+                      } else {
+                        saveDB();
+                      }
+                    },
+                  );
+                }, 1000);
+              } else {
+                alert(result);
+              }
+            },
+          );
+        });
+      }
+      // -----------------------------------
 
       const wsUrl = "file://" + sound.path;
       const ws = WaveSurfer.create({
@@ -821,6 +878,68 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+  // Lấy danh sách toàn bộ Tag
+  function getSortedTags(sortType = "most") {
+    let tagCounts = {};
+    Object.values(sfxDatabase).forEach((item) => {
+      (item.tags || []).forEach((t) => {
+        tagCounts[t] = (tagCounts[t] || 0) + 1;
+      });
+    });
+
+    let tagsArray = Object.keys(tagCounts).map((t) => ({
+      name: t,
+      count: tagCounts[t],
+    }));
+
+    if (sortType === "most") tagsArray.sort((a, b) => b.count - a.count);
+    if (sortType === "az")
+      tagsArray.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortType === "za")
+      tagsArray.sort((a, b) => b.name.localeCompare(a.name));
+
+    return tagsArray;
+  }
+
+  // Render Bảng Tag
+  function renderTagBoard(sortType) {
+    const grid = document.getElementById("tag-board-grid");
+    grid.innerHTML = "";
+    getSortedTags(sortType).forEach((t) => {
+      let btn = document.createElement("button");
+      btn.innerText = `${t.name} (${t.count})`;
+      btn.style.cssText =
+        "padding: 8px 12px; background: #444; border: none; border-radius: 4px; cursor: pointer;";
+      btn.onclick = () => {
+        // Đóng bảng, bật Playlist mode
+        document.getElementById("tag-board-modal").style.display = "none";
+        document.getElementById("playlist-banner").style.display = "block";
+        document.getElementById("playlist-tag-name").innerText = t.name;
+
+        // Ép vào thanh search cú pháp t:""
+        document.getElementById("searchInput").value = `t:"${t.name}"`;
+        loadSoundsAndRender(); // Gọi hàm render list của ông
+      };
+      grid.appendChild(btn);
+    });
+  }
+
+  // Bắt sự kiện UI
+  document.getElementById("btn-open-tags").onclick = () => {
+    document.getElementById("tag-board-modal").style.display = "block";
+    renderTagBoard(document.getElementById("tag-sort-select").value);
+  };
+  document.getElementById("btn-close-board").onclick = () =>
+    (document.getElementById("tag-board-modal").style.display = "none");
+  document.getElementById("tag-sort-select").onchange = (e) =>
+    renderTagBoard(e.target.value);
+
+  // Thoát Playlist
+  document.getElementById("btn-close-playlist").onclick = () => {
+    document.getElementById("playlist-banner").style.display = "none";
+    document.getElementById("searchInput").value = "";
+    loadSoundsAndRender();
+  };
 
   document.getElementById("btn-save-settings").addEventListener("click", () => {
     const newFolders = Array.from(document.querySelectorAll(".folder-path"))

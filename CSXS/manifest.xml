@@ -1,57 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" 
-    ExtensionBundleId="com.moonlight.soundmanager" 
-    ExtensionBundleVersion="0.1.0" 
-    ExtensionBundleName="Sound Manager" 
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-    
-    <AuthorList>
-        <Author>Moonlight</Author>
+<ExtensionManifest Version="11.0" ExtensionBundleId="com.soundmanager.panel.v2" ExtensionBundleVersion="1.0.0" ExtensionBundleName="Sound Manager Moonlight" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><AuthorList>
+        <Author>Moonlightspeed</Author>
     </AuthorList>
-    
-    <ContactList>
-        <Contact Email="haidangtr.contact@gmail.com" />
-    </ContactList>
-    
-    <LegalInfo>
-        <Copyright>Copyright 2026</Copyright>
-    </LegalInfo>
-    
-    <HostList>
-        <Host Name="PPRO" Version="[11.0,99.9]" />
-    </HostList>
-    
     <ExtensionList>
-        <Extension Id="com.moonlight.soundmanager.panel" Version="0.1.0" />
+        <Extension Id="com.soundmanager.panel.extension.v2" Version="0.0.1" />
     </ExtensionList>
-    
+    <ExecutionEnvironment>
+        <HostList>
+            <Host Name="PPRO" Version="[10.0,99.9]" /> 
+        </HostList>
+        <LocaleList>
+            <Locale Code="All" />
+        </LocaleList>
+        <RequiredRuntimeList>
+            <RequiredRuntime Name="CSXS" Version="[10.0,99.9]" />
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
     <DispatchInfoList>
-        <Extension Id="com.moonlight.soundmanager.panel">
+        <Extension Id="com.soundmanager.panel.extension.v2">
             <DispatchInfo>
                 <Resources>
                     <MainPath>./index.html</MainPath>
                     <ScriptPath>./jsx/hostscript.jsx</ScriptPath>
-                    <CEFCommandLine>
-                        <Parameter>--allow-file-access-from-files</Parameter>
-                        <Parameter>--allow-file-access</Parameter>
-                    </CEFCommandLine>
                 </Resources>
                 <Lifecycle>
                     <AutoVisible>true</AutoVisible>
                 </Lifecycle>
                 <UI>
                     <Type>Panel</Type>
-                    <Menu>Sound Manager v0.1a</Menu>
+                    <Menu>Sound Manager</Menu>
                     <Geometry>
                         <Size>
-                            <Width>300</Width>
                             <Height>600</Height>
+                            <Width>400</Width>
                         </Size>
                     </Geometry>
-                    <Icons>
-                        </Icons>
                 </UI>
             </DispatchInfo>
         </Extension>
     </DispatchInfoList>
+    <CEFCommandLine>
+        <Parameter>--enable-nodejs</Parameter>
+        <Parameter>--mixed-context</Parameter>
+        <Parameter>--allow-file-access</Parameter>
+        <Parameter>--allow-file-access-from-files</Parameter>
+    </CEFCommandLine>
 </ExtensionManifest>

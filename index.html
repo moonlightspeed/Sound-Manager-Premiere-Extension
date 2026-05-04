@@ -30,7 +30,7 @@
     <div class="top-nav">
       <header class="header">
         <div class="header-left">
-          <h2>Sound Manager <span class="version-tag">v0.1a</span></h2>
+          <h2>Sound Manager <span class="version-tag">v0.0.1</span></h2>
         </div>
         <div style="flex-grow: 1; display: flex; justify-content: center">
           <div
@@ -83,7 +83,61 @@
         </select>
       </div>
     </div>
+    <!-- Nút mở bảng Tag -->
+    <button id="btn-open-tags" title="Mở bảng Tags">
+      <i class="fas fa-tags"></i>
+    </button>
 
+    <!-- Chế độ xem Playlist (Ẩn mặc định) -->
+    <div
+      id="playlist-banner"
+      style="
+        display: none;
+        background: #333;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+      "
+    >
+      <h2 style="margin: 0; display: inline-block">
+        Tag: <span id="playlist-tag-name" style="color: #4caf50"></span>
+      </h2>
+      <button id="btn-close-playlist" style="float: right; color: red">
+        <b>X</b>
+      </button>
+    </div>
+
+    <!-- Modal Bảng Tag -->
+    <div
+      id="tag-board-modal"
+      style="
+        display: none;
+        position: fixed;
+        top: 10%;
+        left: 10%;
+        width: 80%;
+        height: 80%;
+        background: #222;
+        border: 1px solid #555;
+        z-index: 1000;
+        padding: 20px;
+        overflow-y: auto;
+      "
+    >
+      <button id="btn-close-board" style="float: right; color: red">
+        <b>X</b>
+      </button>
+      <h3>Kho Tags</h3>
+      <select id="tag-sort-select">
+        <option value="most">Nhiều nhất</option>
+        <option value="az">A to Z</option>
+        <option value="za">Z to A</option>
+      </select>
+      <div
+        id="tag-board-grid"
+        style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px"
+      ></div>
+    </div>
     <div class="sfx-list" id="sfx-list"></div>
 
     <button id="btn-scroll-top" title="Scroll to Top">
