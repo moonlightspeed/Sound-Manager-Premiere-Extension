@@ -24,13 +24,22 @@
         margin-left: 6px;
         vertical-align: middle;
       }
+      .mini-suggest-box::-webkit-scrollbar {
+        width: 5px;
+      }
+      .mini-suggest-box::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 5px;
+      }
     </style>
   </head>
   <body>
+    <!-- KHỐI HEADER ĐƯỢC GHIM CHẶT -->
+    <div id="sticky-header-wrapper" style="position: sticky; top: 0; z-index: 1000; background: #242424; margin: -10px -10px 10px -10px; padding: 10px 10px 5px 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);">
     <div class="top-nav">
       <header class="header">
         <div class="header-left">
-          <h2>Sound Manager <span class="version-tag">v0.0.1</span></h2>
+          <h2>Sound Manager <span class="version-tag">v0.1a</span></h2>
         </div>
         <div style="flex-grow: 1; display: flex; justify-content: center">
           <div
@@ -42,6 +51,10 @@
           </div>
         </div>
         <div class="header-right">
+          <button id="btn-show-usages" style="background: transparent; border: none; color: #fff; font-size: 16px; cursor: pointer;" title="Show Timeline Usages"><i class="fas fa-history"></i></button>
+          <button id="btn-show-playlists" style="background: transparent; border: none; color: #fff; font-size: 16px; cursor: pointer;" title="Playlists"><i class="fas fa-list-ul"></i></button>
+          
+          <div style="width: 1px; height: 20px; background: #444; margin: 0 5px;"></div>
           <button
             id="btn-sync-usages"
             class="icon-btn"
@@ -60,83 +73,275 @@
         </div>
       </header>
 
-      <div class="search-container">
-        <input
-          type="text"
-          id="search-input"
-          placeholder='Search... e.g., wind, tag:"sun, rain"'
-        />
+      <div
+        class="search-container"
+        style="display: flex; align-items: center; gap: 8px; margin-top: 10px"
+      >
+        <!-- NÚT MỞ BẢNG TAG -->
+        <button
+          id="btn-open-tags"
+          class="icon-btn"
+          title="Mở Kho Tags"
+          style="
+            padding: 6px 10px;
+            background: #9e9e9e;
+            border: none;
+            color: white;
+            border-radius: 4px;
+          "
+        >
+          <i class="fas fa-tags"></i>
+        </button>
+
+        <div style="display: flex; gap: 15px; align-items: center; width: 100%;">
+          <input type="text" id="search-input" placeholder='Search... (Press Enter) t:"tag" o:"exact" -"exclude"' style="flex: 1; padding: 6px; background: #222; color: white; border: 1px solid #444; border-radius: 4px;" />
+          <div
+            id="tag-suggest-box"
+            style="
+              display: none;
+              position: absolute;
+              top: 100%;
+              left: 0;
+              background: #333;
+              border: 1px solid #555;
+              width: 100%;
+              max-height: 200px;
+              overflow-y: auto;
+              z-index: 999;
+              box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            "
+          >
+          <!-- THUMB VOLUME -->
+          <div style="display: flex; align-items: center; gap: 6px; margin-right: 10px;">
+            <i class="fas fa-volume-up" style="color: #aaa; font-size: 14px;"></i>
+            <input type="range" id="master-vol" min="0" max="1" step="0.05" value="1" style="width: 70px; cursor: pointer;">
+          </div>
+            <div style="text-align: right; background: #222; padding: 4px 8px">
+              <button
+                id="close-suggest"
+                style="
+                  color: #ff5555;
+                  border: none;
+                  background: none;
+                  cursor: pointer;
+                  font-size: 14px;
+                "
+              >
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <ul
+              id="tag-suggest-list"
+              style="list-style: none; padding: 0; margin: 0"
+            ></ul>
+          </div>
+        </div>
 
         <div
           class="search-help"
-          title='SEARCH GUIDE:&#10;• Normal text: Searches filename&#10;• tag:"abc" -> File MUST have tag "abc"&#10;• exp:"xyz" -> File MUST NOT have "xyz" in name or tag&#10;• only:"wind" -> Filename (or tag) MUST exactly be "wind"'
+          title='SEARCH GUIDE:&#10;• Normal text: Searches filename&#10;• t:"abc\xyz" -> MUST have BOTH tags&#10;• -"bad, noise" -> Excludes any name/tag&#10;• o:"wind" -> Exact match for name or tag'
         >
           <i class="fas fa-question-circle"></i>
         </div>
 
         <select id="filter-sort" title="Filter & Sort">
-          <option value="all">All</option>
-          <option value="fav">⭐ Fav</option>
-          <option value="az">A-Z</option>
-          <option value="za">Z-A</option>
-          <option value="uses">Most Used</option>
-        </select>
+        <option value="all">All</option>
+        <option value="fav">⭐ Fav</option>
+        <option value="az">A-Z</option>
+        <option value="za">Z-A</option>
+        <option value="uses">Most Used</option>
+      </select>
+    </div>
+
+    <!-- BẢNG TAG -->
+    <div id="inline-tag-board" style="display: none; background: #222; padding: 12px; margin-bottom: 5px; border-radius: 5px; border: 1px solid #333;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 8px; flex-wrap: wrap; gap: 10px;">
+        
+        <!-- Nhóm Trái: Tiêu đề + Ô Search -->
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <h3 style="margin: 0; color: #fff; font-size: 15px;">All Tags</h3>
+          <input type="text" id="tag-board-search" placeholder="Search tags..." style="padding: 4px 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px; width: 140px;" />
+        </div>
+
+        <!-- Nhóm Phải: Hide + Delete + Deselect + Lọc + Thu nhỏ + Tắt -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          
+          <button id="btn-delete-tags" style="padding: 0; background: transparent; color: #ff5555; border: none; font-size: 12px; cursor: pointer; opacity: 0.4; pointer-events: none;" title="Delete selected tags"><i class="fas fa-trash"></i> Delete</button>
+            
+          <button id="btn-deselect-tags" style="padding: 0; background: transparent; color: #FFD700; border: none; font-size: 12px; cursor: pointer; opacity: 0.4; pointer-events: none;">Deselect</button>
+          
+          <select id="tag-sort-select" style="padding: 4px; background: #333; color: white; border: 1px solid #555; font-size: 12px; border-radius: 4px;">
+            <option value="most">Most Used</option>
+            <option value="az">A to Z</option>
+            <option value="za">Z to A</option>
+          </select>
+
+          <!-- NÚT THU GỌN / MỞ RỘNG -->
+          <button id="btn-toggle-tags" style="color: #4fa5e6; font-size: 14px; background: none; border: none; cursor: pointer; padding: 0; display: none;" title="Toggle tags"><i class="fas fa-chevron-up"></i></button>
+          <button id="btn-close-board" style="color: #ff5555; font-size: 16px; background: none; border: none; cursor: pointer; padding: 0;"><i class="fas fa-times"></i></button>
+        </div>
       </div>
-    </div>
-    <!-- Nút mở bảng Tag -->
-    <button id="btn-open-tags" title="Mở bảng Tags">
-      <i class="fas fa-tags"></i>
-    </button>
-
-    <!-- Chế độ xem Playlist (Ẩn mặc định) -->
-    <div
-      id="playlist-banner"
-      style="
-        display: none;
-        background: #333;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 10px;
-      "
-    >
-      <h2 style="margin: 0; display: inline-block">
-        Tag: <span id="playlist-tag-name" style="color: #4caf50"></span>
-      </h2>
-      <button id="btn-close-playlist" style="float: right; color: red">
-        <b>X</b>
-      </button>
+      
+      <div id="tag-board-grid" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; max-height: 250px; overflow-y: auto; transition: max-height 0.3s ease;"></div>
     </div>
 
-    <!-- Modal Bảng Tag -->
+    <!-- BANNER PLAYLIST -->
+    <div id="playlist-banner" style="display: none; background: #2a2a2a; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #4CAF50;">
+      <h3 style="margin: 0; display: inline-block; color: #ddd; font-size: 13px;">Playlist Tag: <span id="playlist-tag-name" style="color: #4CAF50; font-weight: bold;"></span></h3>
+      <button id="btn-close-playlist" style="float: right; color: #ff5555; background: none; border: none; font-size: 16px; cursor: pointer;"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- MODAL KHO TAGS -->
     <div
       id="tag-board-modal"
       style="
         display: none;
         position: fixed;
-        top: 10%;
-        left: 10%;
-        width: 80%;
-        height: 80%;
-        background: #222;
+        top: 5%;
+        left: 5%;
+        width: 90%;
+        height: 90%;
+        background: #1e1e1e;
         border: 1px solid #555;
         z-index: 1000;
         padding: 20px;
         overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        border-radius: 8px;
       "
     >
-      <button id="btn-close-board" style="float: right; color: red">
-        <b>X</b>
-      </button>
-      <h3>Kho Tags</h3>
-      <select id="tag-sort-select">
-        <option value="most">Nhiều nhất</option>
-        <option value="az">A to Z</option>
-        <option value="za">Z to A</option>
-      </select>
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid #444;
+          padding-bottom: 10px;
+        "
+      >
+        <h2 style="margin: 0; color: #fff">All Tags</h2>
+        <div>
+          <select
+            id="tag-sort-select"
+            style="
+              padding: 5px;
+              background: #333;
+              color: white;
+              border: 1px solid #555;
+              margin-right: 15px;
+            "
+          >
+            <option value="most">Most Used</option>
+            <option value="az">A to Z</option>
+            <option value="za">Z to A</option>
+          </select>
+          <button
+            id="btn-close-board"
+            style="
+              color: #ff5555;
+              font-size: 20px;
+              background: none;
+              border: none;
+              cursor: pointer;
+            "
+          >
+            <b>X</b>
+          </button>
+        </div>
+      </div>
       <div
         id="tag-board-grid"
-        style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px"
+        style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px"
       ></div>
+    </div>
+
+    <div id="usage-modal" class="modal hidden">
+      <div
+        class="modal-content"
+        style="
+          width: 80%;
+          max-width: 800px;
+          max-height: 90vh;
+          display: flex;
+          flex-direction: column;
+        "
+      >
+        <div
+          class="modal-header"
+          style="padding-bottom: 5px; border-bottom: none"
+        >
+          <!-- THÊM STYLE Ở ĐÂY -->
+          <h3 style="margin-bottom: 0">Used Sounds in Sequences</h3>
+          <!-- BỎ MARGIN CỦA H3 -->
+          <button id="close-usage"><i class="fas fa-times"></i></button>
+        </div>
+        <div
+          class="modal-body"
+          style="
+            flex-grow: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding-top: 5px;
+          "
+        >
+          <!-- GIẢM PADDING TOP -->
+          <!-- GIẢM MARGIN BOTTOM CỦA THANH CÔNG CỤ XUỐNG 5PX -->
+          <div
+            style="
+              display: flex;
+              gap: 10px;
+              margin-bottom: 5px;
+              align-items: center;
+              border-bottom: 1px solid #444;
+              padding-bottom: 10px;
+            "
+          >
+            <label
+              style="
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+              "
+            >
+              <input type="checkbox" id="usage-simple-view" /> Simplify
+            </label>
+            <select
+              id="usage-sort"
+              class="small-input"
+              style="flex-grow: 0; background: #333; color: white"
+            >
+              <option value="most">Most Used</option>
+              <option value="az">A-Z</option>
+              <option value="za">Z-A</option>
+            </select>
+            <input
+              type="text"
+              id="usage-search"
+              placeholder="Filter sequences..."
+              style="
+                flex-grow: 1;
+                padding: 5px;
+                background: #333;
+                color: white;
+                border: 1px solid #555;
+              "
+            />
+          </div>
+          <div
+            id="usage-list"
+            style="
+              overflow-y: auto;
+              flex-grow: 1;
+              padding-right: 5px;
+              margin-top: 5px;
+            "
+          ></div>
+          <!-- ĐIỀU CHỈNH MARGIN TOP -->
+        </div>
+      </div>
+    </div>
     </div>
     <div class="sfx-list" id="sfx-list"></div>
 
@@ -144,8 +349,9 @@
       <i class="fas fa-arrow-up"></i>
     </button>
 
+    <!-- MODAL SETTINGS -->
     <div id="settings-modal" class="modal hidden">
-      <div class="modal-content">
+      <div class="modal-content" style="max-height: 70vh; overflow-y: auto;">
         <div class="modal-header">
           <h3>Settings</h3>
           <button id="close-settings"><i class="fas fa-times"></i></button>
@@ -166,9 +372,9 @@
                 gap: 8px;
                 cursor: pointer;
               "
+              ><input type="checkbox" id="check-show-all-files" /> Load All
+              Files</label
             >
-              <input type="checkbox" id="check-show-all-files" /> Load All Files
-            </label>
           </div>
           <div class="setting-group">
             <label
@@ -178,10 +384,9 @@
                 gap: 8px;
                 cursor: pointer;
               "
+              ><input type="checkbox" id="check-show-tags" checked /> Display
+              Tags</label
             >
-              <input type="checkbox" id="check-show-tags" checked /> Display
-              Tags
-            </label>
           </div>
           <div class="setting-group">
             <label
@@ -191,10 +396,9 @@
                 gap: 8px;
                 cursor: pointer;
               "
+              ><input type="checkbox" id="check-show-seq" checked /> Display
+              Active Sequence Usages</label
             >
-              <input type="checkbox" id="check-show-seq" checked /> Display
-              Active Sequence Usages
-            </label>
           </div>
           <div class="setting-group">
             <label
@@ -204,10 +408,18 @@
                 gap: 8px;
                 cursor: pointer;
               "
+              ><input type="checkbox" id="check-show-seq-time" checked />
+              Display Timestamps</label
             >
-              <input type="checkbox" id="check-show-seq-time" checked /> Display
-              Timestamps
-            </label>
+            <!-- NÚT EXPORT & LOAD DATA -->
+          <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #444; display: flex; gap: 10px;">
+            <button id="btn-export-data" style="padding: 6px 12px; background: #2c2c2c; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; flex: 1; transition: 0.2s;" onmouseover="this.style.background='#4fa5e6'" onmouseout="this.style.background='#2c2c2c'"><i class="fas fa-download"></i> Export Data</button>
+            
+            <button id="btn-load-data" style="padding: 6px 12px; background: #2c2c2c; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; flex: 1; transition: 0.2s;" onmouseover="this.style.background='#4fa5e6'" onmouseout="this.style.background='#2c2c2c'"><i class="fas fa-upload"></i> Load Data</button>
+            
+            <!-- Input ẩn để chọn file -->
+            <input type="file" id="input-load-data" accept=".json" style="display: none;">
+          </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -218,15 +430,34 @@
               class="btn-secondary"
               style="margin-top: 0"
             >
-              <i class="fas fa-sync-alt"></i> Refresh
-            </button>
-            <button id="btn-save-settings" class="btn-primary">
+              <i class="fas fa-sync-alt"></i> Refresh</button
+            ><button id="btn-save-settings" class="btn-primary">
               Save Settings
             </button>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- BẢNG PLAYLISTS -->
+  <!-- BẢNG PLAYLISTS MỚI (DẠNG THƯ MỤC) -->
+  <div id="playlist-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 600px; width: 95%;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 10px;">
+        <h3 style="margin: 0; color: white;"><i class="fas fa-list-ul"></i> My Playlists</h3>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <!-- NÚT XÓA HÀNG LOẠT -->
+          <button id="btn-bulk-remove-pl" style="padding: 4px 10px; background: #ff5555; color: white; border: none; border-radius: 4px; cursor: pointer;" title="Remove Selected Items"><i class="fas fa-trash"></i></button>
+          
+          <button id="btn-new-playlist" style="padding: 4px 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;"><i class="fas fa-plus"></i> New Playlist</button>
+          <button id="close-playlist" style="color: #ff5555; font-size: 20px; background: none; border: none; cursor: pointer;"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <!-- Nơi chứa các thư mục playlist -->
+      <div id="playlist-list" style="max-height: 450px; overflow-y: auto; padding-right: 5px;">
+      </div>
+    </div>
+  </div>
 
     <script src="js/CSInterface.js"></script>
     <script src="js/main.js"></script>
