@@ -113,7 +113,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  // --- DỮ LIỆU LÕI ---
   let sfxDatabase = JSON.parse(localStorage.getItem("sfx_db")) || {};
+  let projectUsages =
+    JSON.parse(localStorage.getItem("sfx_project_usages")) || {}; // Nơi lưu usages theo TỪNG PROJECT
   let settings = JSON.parse(localStorage.getItem("sfx_settings")) || {
     folders: [],
     showTags: true,
@@ -128,9 +131,13 @@ document.addEventListener("DOMContentLoaded", function () {
   window.activeTags = [];
   window.excludeTags = [];
   window.expandedPlaylists = [];
+  let currentProject = "Unknown Project";
 
   function saveDB() {
     localStorage.setItem("sfx_db", JSON.stringify(sfxDatabase));
+  }
+  function saveUsages() {
+    localStorage.setItem("sfx_project_usages", JSON.stringify(projectUsages));
   }
   function saveSettings() {
     localStorage.setItem("sfx_settings", JSON.stringify(settings));
@@ -184,8 +191,45 @@ document.addEventListener("DOMContentLoaded", function () {
       } catch (e) {}
     });
   }
-  setInterval(updateAudioTracks, 2000);
+
+  // --- TỰ ĐỘNG PHÁT HIỆN ĐỔI PROJECT (LÀM MỚI DATA TỪ ĐẦU) ---
+  function updateCurrentProject() {
+    if (!window.cep) return;
+    csInterface.evalScript(
+      'app.project ? (app.project.path !== "" ? app.project.path : app.project.name) : ""',
+      (res) => {
+        if (!res || res === "ERR:") res = "Unknown Project";
+        if (res !== currentProject) {
+          currentProject = res;
+
+          // Chỉ tạo giỏ chứa data trắng tinh cho project mới, KHÔNG copy data cũ nữa
+          if (!projectUsages[currentProject]) {
+            projectUsages[currentProject] = {};
+            saveUsages();
+          }
+
+          // Quét lại giao diện để nó reset sạch số uses về 0
+          loadSoundsAndRender(
+            false,
+            document.getElementById("search-input").value,
+          );
+          if (
+            document.getElementById("usage-modal") &&
+            !document.getElementById("usage-modal").classList.contains("hidden")
+          ) {
+            renderUsageBoard();
+          }
+        }
+      },
+    );
+  }
+
+  setInterval(() => {
+    updateAudioTracks();
+    updateCurrentProject();
+  }, 2000);
   updateAudioTracks();
+  updateCurrentProject();
 
   function formatTime(secs) {
     if (isNaN(secs)) return "00:00";
@@ -213,6 +257,110 @@ document.addEventListener("DOMContentLoaded", function () {
   let usageWavesurfers = [];
   const searchInput = document.getElementById("search-input");
   const filterSort = document.getElementById("filter-sort");
+
+  // --- LOGIC ADD VÀO TIMELINE & CỘNG USAGE (DÙNG CHUNG) ---
+  function addSoundToTimeline(
+    safePath,
+    soundName,
+    usesElemId,
+    seqListElemId,
+    seqContainerId,
+  ) {
+    const targetTrack = document.getElementById("track-val").value;
+    if (!targetTrack)
+      return sysAlert("Please open a Sequence and select a Target Track.");
+    csInterface.evalScript(
+      `importAndAddToTimeline("${safePath.replace(/\//g, "\\\\")}", "${targetTrack}")`,
+      (result) => {
+        if (result === "Success") {
+          if (!projectUsages[currentProject])
+            projectUsages[currentProject] = {};
+          if (!projectUsages[currentProject][safePath])
+            projectUsages[currentProject][safePath] = {
+              uses: 0,
+              sequences: [],
+            };
+
+          projectUsages[currentProject][safePath].uses += 1;
+
+          // Tự động lấy tên Sequence đang mở để gán vào mục "In:"
+          csInterface.evalScript(
+            'app.project.activeSequence ? app.project.activeSequence.name : ""',
+            (seqName) => {
+              if (seqName && seqName !== "ERR:") {
+                if (
+                  !projectUsages[currentProject][safePath].sequences.includes(
+                    seqName,
+                  )
+                ) {
+                  projectUsages[currentProject][safePath].sequences.push(
+                    seqName,
+                  );
+                }
+              }
+              saveUsages();
+
+              // Update giao diện ngay lập tức
+              if (usesElemId && document.getElementById(usesElemId))
+                document.getElementById(usesElemId).innerText =
+                  projectUsages[currentProject][safePath].uses;
+              if (seqListElemId && document.getElementById(seqListElemId))
+                document.getElementById(seqListElemId).innerHTML =
+                  formatSequenceDisplay(
+                    projectUsages[currentProject][safePath].sequences,
+                    soundName,
+                  );
+              if (seqContainerId && document.getElementById(seqContainerId))
+                document.getElementById(seqContainerId).style.display =
+                  "inline";
+
+              sysAlert(
+                "Added to timeline!",
+                "Success",
+                "alert_add_timeline_ok",
+              );
+              if (
+                document.getElementById("usage-modal") &&
+                !document
+                  .getElementById("usage-modal")
+                  .classList.contains("hidden")
+              )
+                renderUsageBoard();
+            },
+          );
+        } else {
+          sysAlert(result, "Error");
+        }
+      },
+    );
+  }
+
+  // Nút Sync Usages (hiển thị thanh tải thay vì popup)
+  if (document.getElementById("btn-sync-usages")) {
+    document.getElementById("btn-sync-usages").addEventListener("click", () => {
+      const overlay = document.getElementById("loading-overlay");
+      const loadingText = document.getElementById("loading-text");
+      const loadingProgress = document.getElementById("loading-progress");
+
+      overlay.style.display = "flex";
+      loadingText.innerText = "Syncing usages from sequence...";
+      loadingProgress.style.width = "60%";
+
+      updateCurrentProject();
+
+      setTimeout(() => {
+        loadingProgress.style.width = "100%";
+        setTimeout(() => {
+          overlay.style.display = "none";
+          loadingProgress.style.width = "0%";
+          loadSoundsAndRender(
+            false,
+            document.getElementById("search-input").value,
+          );
+        }, 400);
+      }, 800);
+    });
+  }
 
   // --- LOGIC GỢI Ý TÌM KIẾM (AUTOCOMPLETE INLINE + TAGS) ---
   let isDeleting = false;
@@ -242,7 +390,6 @@ document.addEventListener("DOMContentLoaded", function () {
     let val = searchInput.value;
     if (!val || searchInput.selectionStart !== val.length) return;
 
-    // 1. Kiểm tra AutoComplete cho việc gõ Tag (vd: t:"wa -> t:"waterfall")
     const tagMatch = val.match(/(t:"([^"]*))$/);
     if (tagMatch && tagMatch[2].length > 0) {
       const typingTag = tagMatch[2].toLowerCase();
@@ -259,11 +406,10 @@ document.addEventListener("DOMContentLoaded", function () {
         let fullMatch = prefix + foundTag + '"';
         searchInput.value = fullMatch;
         searchInput.setSelectionRange(val.length, fullMatch.length);
-        return; // Dừng lại, không tìm History nữa
+        return;
       }
     }
 
-    // 2. Nếu không phải Tag, tìm theo Lịch Sử
     let match = searchHistory.find((h) =>
       h.toLowerCase().startsWith(val.toLowerCase()),
     );
@@ -426,11 +572,15 @@ document.addEventListener("DOMContentLoaded", function () {
     else if (filterVal === "za")
       filteredSounds.sort((a, b) => b.name.localeCompare(a.name));
     else if (filterVal === "uses")
-      filteredSounds.sort(
-        (a, b) =>
-          (sfxDatabase[b.path.replace(/\\/g, "/")]?.uses || 0) -
-          (sfxDatabase[a.path.replace(/\\/g, "/")]?.uses || 0),
-      );
+      filteredSounds.sort((a, b) => {
+        const uA =
+          projectUsages[currentProject]?.[a.path.replace(/\\/g, "/")]?.uses ||
+          0;
+        const uB =
+          projectUsages[currentProject]?.[b.path.replace(/\\/g, "/")]?.uses ||
+          0;
+        return uB - uA;
+      });
 
     if (
       !settings.showAllFiles &&
@@ -455,15 +605,11 @@ document.addEventListener("DOMContentLoaded", function () {
     filteredSounds.forEach((sound, index) => {
       let safePath = sound.path.replace(/\\/g, "/");
       if (!sfxDatabase[safePath])
-        sfxDatabase[safePath] = {
-          tags: [],
-          uses: 0,
-          fav: false,
-          sequences: [],
-        };
-      if (!Array.isArray(sfxDatabase[safePath].sequences))
-        sfxDatabase[safePath].sequences = [];
+        sfxDatabase[safePath] = { tags: [], fav: false };
+
       const dbData = sfxDatabase[safePath];
+      const projData = (projectUsages[currentProject] &&
+        projectUsages[currentProject][safePath]) || { uses: 0, sequences: [] };
       const waveId = "wave-" + index;
 
       const item = document.createElement("div");
@@ -474,8 +620,8 @@ document.addEventListener("DOMContentLoaded", function () {
       });
 
       const seqHtml =
-        settings.showSeq && dbData.sequences.length > 0
-          ? `<span class="sfx-sequence" id="seq-${index}">(In: <span id="seq-list-${index}">${formatSequenceDisplay(dbData.sequences, sound.name)}</span>)</span>`
+        settings.showSeq && projData.sequences.length > 0
+          ? `<span class="sfx-sequence" id="seq-${index}">(In: <span id="seq-list-${index}">${formatSequenceDisplay(projData.sequences, sound.name)}</span>)</span>`
           : `<span class="sfx-sequence" id="seq-${index}" style="display:none;">(In: <span id="seq-list-${index}"></span>)</span>`;
 
       item.innerHTML = `
@@ -483,10 +629,10 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="sfx-thumb play-pause-thumb" id="drag-icon-${index}" draggable="true" style="cursor: pointer; background: #333; display: flex; justify-content: center; align-items: center;" title="${sound.name}"><i class="fas fa-play" style="pointer-events: none; color: #fff;"></i></div>
               <div class="sfx-details">
                   <div class="sfx-name" id="drag-name-${index}" draggable="true" style="cursor: grab;" title="${sound.name}">${sound.name}</div>
-                  <p class="sfx-meta"><span id="time-${index}">--:--</span> • <span id="uses-${index}">${dbData.uses}</span> usages ${seqHtml}</p>
+                  <p class="sfx-meta"><span id="time-${index}">--:--</span> • <span id="uses-${index}">${projData.uses}</span> usages ${seqHtml}</p>
               </div>
               <div class="sfx-actions">
-                  <input type="range" id="vol-${index}" min="0" max="1" step="0.05" value="1" title="Volume (Double click to reset)" style="width: 50px; margin-right: 8px; accent-color: #4fa5e6; cursor: pointer;">
+                  <input type="range" id="vol-${index}" min="0" max="4" step="0.1" value="1" title="Boost Preview Volume (Double click to reset)" style="width: 50px; margin-right: 8px; accent-color: #4fa5e6; cursor: pointer;">
                   <button class="btn-add" data-path="${safePath}" id="add-${index}" title="Add to Target Track"><i class="fas fa-plus"></i></button>
                   <button class="btn-add-playlist" data-path="${safePath}" id="pl-${index}" title="Add to Playlist" style="position: relative;"><i class="fas fa-folder-plus"></i></button>
                   <button class="btn-replace" data-path="${safePath}" id="replace-${index}" title="Replace Selected Timeline Clip"><i class="fas fa-exchange-alt"></i></button>
@@ -543,15 +689,27 @@ document.addEventListener("DOMContentLoaded", function () {
           ctxMenu.style.display = "none";
           loadSoundsAndRender(true, "", safePath);
         };
+
         document.getElementById("m-clear").onclick = () => {
-          sfxDatabase[safePath].uses = 0;
-          sfxDatabase[safePath].sequences = [];
-          saveDB();
+          ctxMenu.style.display = "none";
+          if (
+            projectUsages[currentProject] &&
+            projectUsages[currentProject][safePath]
+          ) {
+            projectUsages[currentProject][safePath].uses = 0;
+            projectUsages[currentProject][safePath].sequences = [];
+            saveUsages();
+          }
           document.getElementById(`uses-${index}`).innerText = "0";
           if (document.getElementById(`seq-${index}`))
             document.getElementById(`seq-${index}`).style.display = "none";
-          ctxMenu.style.display = "none";
+          if (
+            !document.getElementById("usage-modal").classList.contains("hidden")
+          ) {
+            renderUsageBoard();
+          }
         };
+
         document.getElementById("m-clear-tags").onclick = () => {
           sfxDatabase[safePath].tags = [];
           saveDB();
@@ -805,25 +963,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const addBtn = item.querySelector(`#add-${index}`);
       addBtn.addEventListener("click", () => {
-        const targetTrack = document.getElementById("track-val").value;
-        if (!targetTrack)
-          return sysAlert("Please open a Sequence and select a Target Track.");
-        csInterface.evalScript(
-          `importAndAddToTimeline("${safePath.replace(/\//g, "\\\\")}", "${targetTrack}")`,
-          (result) => {
-            if (result === "Success") {
-              sfxDatabase[safePath].uses += 1;
-              document.getElementById(`uses-${index}`).innerText =
-                sfxDatabase[safePath].uses;
-              saveDB();
-              sysAlert("Added!", "Success", "alert_add_timeline_ok");
-            } else {
-              sysAlert(result, "Error");
-            }
-          },
+        addSoundToTimeline(
+          safePath,
+          sound.name,
+          `uses-${index}`,
+          `seq-list-${index}`,
+          `seq-${index}`,
         );
       });
 
+      // THÊM BACKEND: WEBAUDIO ĐỂ KÍCH GAIN VƯỢT 100%
       const wsUrl = "file://" + sound.path;
       const ws = WaveSurfer.create({
         container: "#" + waveId,
@@ -833,6 +982,7 @@ document.addEventListener("DOMContentLoaded", function () {
         barWidth: 2,
         barGap: 1,
         cursorWidth: 1,
+        backend: "WebAudio",
       });
       activeWavesurfers.push({
         ws: ws,
@@ -841,7 +991,6 @@ document.addEventListener("DOMContentLoaded", function () {
         safePath: safePath,
       });
 
-      // NÚT VOLUME (MAX 1, DOUBLE CLICK VỀ DEFAULT)
       const volSlider = item.querySelector(`#vol-${index}`);
       volSlider.addEventListener("input", (e) => {
         ws.setVolume(parseFloat(e.target.value));
@@ -976,14 +1125,16 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("usage-search")?.value.toLowerCase().trim() || "";
 
     let usedSounds = [];
-    for (let path in sfxDatabase) {
-      let dbData = sfxDatabase[path];
-      if (dbData.uses > 0 && dbData.sequences && dbData.sequences.length > 0) {
+    const currentProjUsages = projectUsages[currentProject] || {};
+
+    for (let path in currentProjUsages) {
+      let uData = currentProjUsages[path];
+      if (uData.uses > 0) {
         usedSounds.push({
           path,
           name: path.split("/").pop(),
-          uses: dbData.uses,
-          seqs: dbData.sequences,
+          uses: uData.uses,
+          seqs: uData.sequences || [],
         });
       }
     }
@@ -1002,7 +1153,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (usedSounds.length === 0) {
       listContainer.innerHTML =
-        "<p style='color:#aaa;'>No sounds are currently used in sequences.</p>";
+        "<p style='color:#aaa;'>No sounds are currently used in sequences in this project.</p>";
       return;
     }
 
@@ -1030,13 +1181,14 @@ document.addEventListener("DOMContentLoaded", function () {
                   <div class="sfx-thumb" id="u-drag-icon-${idx}" draggable="true" style="cursor: pointer; background: #333; display: flex; justify-content: center; align-items: center;" title="${s.name}"><i class="fas fa-play" style="pointer-events: none; color: #fff;"></i></div>
                   <div class="sfx-details"><div class="sfx-name" draggable="true" style="cursor: grab;">${s.name}</div><p class="sfx-meta"><span id="u-time-${idx}">--:--</span> • ${s.uses} usages (In: ${seqFormatted})</p></div>
                   <div class="sfx-actions">
-                      <input type="range" id="u-vol-${idx}" min="0" max="1" step="0.05" value="1" title="Volume (Double click to reset)" style="width: 50px; margin-right: 8px; accent-color: #4fa5e6; cursor: pointer;">
+                      <input type="range" id="u-vol-${idx}" min="0" max="4" step="0.1" value="1" title="Boost Preview Volume (Double click to reset)" style="width: 50px; margin-right: 8px; accent-color: #4fa5e6; cursor: pointer;">
                       <button class="btn-add" id="u-add-${idx}" title="Add to Target Track"><i class="fas fa-plus"></i></button>
                   </div>
               </div>
               <div id="${uWaveId}" class="waveform-container"></div>`;
         listContainer.appendChild(item);
 
+        // THÊM BACKEND: WEBAUDIO ĐỂ KÍCH GAIN VƯỢT 100%
         const ws = WaveSurfer.create({
           container: "#" + uWaveId,
           waveColor: "#666666",
@@ -1045,6 +1197,7 @@ document.addEventListener("DOMContentLoaded", function () {
           barWidth: 2,
           barGap: 1,
           cursorWidth: 1,
+          backend: "WebAudio",
         });
         usageWavesurfers.push({ ws: ws, url: "file://" + s.path, index: idx });
 
@@ -1109,16 +1262,7 @@ document.addEventListener("DOMContentLoaded", function () {
         ws.load("file://" + s.path);
 
         item.querySelector(`#u-add-${idx}`).addEventListener("click", () => {
-          const targetTrack = document.getElementById("track-val").value;
-          if (!targetTrack) return sysAlert("Please select a Target Track.");
-          csInterface.evalScript(
-            `importAndAddToTimeline("${s.path.replace(/\//g, "\\\\")}", "${targetTrack}")`,
-            (res) => {
-              if (res === "Success")
-                sysAlert("Added!", "Success", "alert_add_timeline_ok_use");
-              else sysAlert(res, "Error");
-            },
-          );
+          addSoundToTimeline(s.path, s.name, null, null, null);
         });
       }
     });
@@ -1284,13 +1428,14 @@ document.addEventListener("DOMContentLoaded", function () {
                         <div class="sfx-thumb" id="p-drag-icon-${uid}" draggable="true" style="cursor: pointer; background: #222; display: flex; justify-content: center; align-items: center;" title="${name}"><i class="fas fa-play" style="pointer-events: none; color: #fff;"></i></div>
                         <div class="sfx-details"><div class="sfx-name" draggable="true" style="cursor: grab;">${name}</div><p class="sfx-meta"><span id="p-time-${uid}">--:--</span></p></div>
                         <div class="sfx-actions">
-                            <input type="range" id="p-vol-${uid}" min="0" max="1" step="0.05" value="1" title="Volume (Double click to reset)" style="width: 50px; margin-right: 8px; accent-color: #4fa5e6; cursor: pointer;">
+                            <input type="range" id="p-vol-${uid}" min="0" max="4" step="0.1" value="1" title="Boost Preview Volume (Double click to reset)" style="width: 50px; margin-right: 8px; accent-color: #4fa5e6; cursor: pointer;">
                             <button class="btn-add" id="p-add-${uid}" title="Add to Target Track"><i class="fas fa-plus"></i></button>
                         </div>
                     </div>
                     <div id="${pWaveId}" class="waveform-container" style="margin-left: 25px;"></div>`;
           content.appendChild(item);
 
+          // THÊM BACKEND: WEBAUDIO ĐỂ KÍCH GAIN VƯỢT 100%
           const ws = WaveSurfer.create({
             container: "#" + pWaveId,
             waveColor: "#666666",
@@ -1299,6 +1444,7 @@ document.addEventListener("DOMContentLoaded", function () {
             barWidth: 2,
             barGap: 1,
             cursorWidth: 1,
+            backend: "WebAudio",
           });
           plWavesurfers.push({ ws: ws, url: "file://" + safePath });
 
@@ -1596,7 +1742,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // EXPORT & LOAD
+  // EXPORT & LOAD (CẬP NHẬT FULL DATA)
   if (document.getElementById("btn-export-data")) {
     document.getElementById("btn-export-data").addEventListener("click", () => {
       const fullData = {
@@ -1604,6 +1750,7 @@ document.addEventListener("DOMContentLoaded", function () {
         settings: settings,
         playlists: playlists,
         history: searchHistory,
+        usages: projectUsages,
       };
       const dataStr = JSON.stringify(fullData, null, 2);
       const dateStr = new Date().toISOString().split("T")[0];
@@ -1656,6 +1803,11 @@ document.addEventListener("DOMContentLoaded", function () {
               localStorage.setItem(
                 "sfx_search_history",
                 JSON.stringify(importedData.history),
+              );
+            if (importedData.usages)
+              localStorage.setItem(
+                "sfx_project_usages",
+                JSON.stringify(importedData.usages),
               );
             sysAlert(
               "Data loaded successfully! Reloading.",
