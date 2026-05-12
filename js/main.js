@@ -971,8 +971,66 @@ document.addEventListener("DOMContentLoaded", function () {
           `seq-${index}`,
         );
       });
+      // NÚT REPLACE AUDIO
+      const replaceBtn = item.querySelector(`#replace-${index}`);
+      if (replaceBtn) {
+        replaceBtn.addEventListener("click", () => {
+          const safeJsxPath = safePath
+            .replace(/\//g, "\\\\")
+            .replace(/"/g, '\\"');
 
+          // Đã đổi thành replaceSelectedAudio đúng với file .jsx của ông
+          csInterface.evalScript(
+            `replaceSelectedAudio("${safeJsxPath}")`,
+            (result) => {
+              if (result === "Success") {
+                if (!projectUsages[currentProject])
+                  projectUsages[currentProject] = {};
+                if (!projectUsages[currentProject][safePath])
+                  projectUsages[currentProject][safePath] = {
+                    uses: 0,
+                    sequences: [],
+                  };
+                projectUsages[currentProject][safePath].uses += 1;
+
+                csInterface.evalScript(
+                  '(app && app.project && app.project.activeSequence) ? app.project.activeSequence.name : ""',
+                  (seqName) => {
+                    if (
+                      seqName &&
+                      seqName !== "ERR:" &&
+                      !projectUsages[currentProject][
+                        safePath
+                      ].sequences.includes(seqName)
+                    ) {
+                      projectUsages[currentProject][safePath].sequences.push(
+                        seqName,
+                      );
+                    }
+                    saveUsages();
+                    const usesElem = document.getElementById(`uses-${index}`);
+                    if (usesElem)
+                      usesElem.innerText =
+                        projectUsages[currentProject][safePath].uses;
+                    sysAlert(
+                      "Clip replaced successfully!",
+                      "Success",
+                      "alert_replace_ok",
+                    );
+                  },
+                );
+              } else {
+                sysAlert(
+                  result || "Please select a clip on the timeline first!",
+                  "Error",
+                );
+              }
+            },
+          );
+        });
+      }
       // THÊM BACKEND: WEBAUDIO ĐỂ KÍCH GAIN VƯỢT 100%
+      // 1. CHUYỂN BACKEND SANG MEDIAELEMENT ĐỂ CHỐNG TRÀN RAM
       const wsUrl = "file://" + sound.path;
       const ws = WaveSurfer.create({
         container: "#" + waveId,
@@ -982,7 +1040,7 @@ document.addEventListener("DOMContentLoaded", function () {
         barWidth: 2,
         barGap: 1,
         cursorWidth: 1,
-        backend: "WebAudio",
+        backend: "MediaElement",
       });
       activeWavesurfers.push({
         ws: ws,
@@ -991,13 +1049,37 @@ document.addEventListener("DOMContentLoaded", function () {
         safePath: safePath,
       });
 
+      // 2. CỤC ĐẨY ÂM LƯỢNG THÔNG MINH (CHỈ BẬT KHI KÉO QUÁ 1)
       const volSlider = item.querySelector(`#vol-${index}`);
+      let gainNode = null;
       volSlider.addEventListener("input", (e) => {
-        ws.setVolume(parseFloat(e.target.value));
+        let val = parseFloat(e.target.value);
+        if (val <= 1) {
+          ws.setVolume(val);
+          if (gainNode) gainNode.gain.value = 1;
+        } else {
+          ws.setVolume(1);
+          if (!gainNode) {
+            if (!window.sfxAudioCtx)
+              window.sfxAudioCtx = new (
+                window.AudioContext || window.webkitAudioContext
+              )();
+            if (window.sfxAudioCtx.state === "suspended")
+              window.sfxAudioCtx.resume();
+            const audioEl = ws.getMediaElement();
+            const mediaSource =
+              window.sfxAudioCtx.createMediaElementSource(audioEl);
+            gainNode = window.sfxAudioCtx.createGain();
+            mediaSource.connect(gainNode);
+            gainNode.connect(window.sfxAudioCtx.destination);
+          }
+          gainNode.gain.value = val;
+        }
       });
       volSlider.addEventListener("dblclick", (e) => {
         e.target.value = 1;
         ws.setVolume(1);
+        if (gainNode) gainNode.gain.value = 1;
       });
 
       ws.on("interaction", () => ws.play());
@@ -1197,17 +1279,40 @@ document.addEventListener("DOMContentLoaded", function () {
           barWidth: 2,
           barGap: 1,
           cursorWidth: 1,
-          backend: "WebAudio",
+          backend: "MediaElement",
         });
         usageWavesurfers.push({ ws: ws, url: "file://" + s.path, index: idx });
 
         const volSlider = item.querySelector(`#u-vol-${idx}`);
+        let gainNode = null;
         volSlider.addEventListener("input", (e) => {
-          ws.setVolume(parseFloat(e.target.value));
+          let val = parseFloat(e.target.value);
+          if (val <= 1) {
+            ws.setVolume(val);
+            if (gainNode) gainNode.gain.value = 1;
+          } else {
+            ws.setVolume(1);
+            if (!gainNode) {
+              if (!window.sfxAudioCtx)
+                window.sfxAudioCtx = new (
+                  window.AudioContext || window.webkitAudioContext
+                )();
+              if (window.sfxAudioCtx.state === "suspended")
+                window.sfxAudioCtx.resume();
+              const audioEl = ws.getMediaElement();
+              const mediaSource =
+                window.sfxAudioCtx.createMediaElementSource(audioEl);
+              gainNode = window.sfxAudioCtx.createGain();
+              mediaSource.connect(gainNode);
+              gainNode.connect(window.sfxAudioCtx.destination);
+            }
+            gainNode.gain.value = val;
+          }
         });
         volSlider.addEventListener("dblclick", (e) => {
           e.target.value = 1;
           ws.setVolume(1);
+          if (gainNode) gainNode.gain.value = 1;
         });
 
         const thumbBtn = item.querySelector(`#u-drag-icon-${idx}`);
@@ -1444,17 +1549,40 @@ document.addEventListener("DOMContentLoaded", function () {
             barWidth: 2,
             barGap: 1,
             cursorWidth: 1,
-            backend: "WebAudio",
+            backend: "MediaElement",
           });
           plWavesurfers.push({ ws: ws, url: "file://" + safePath });
 
           const volSlider = item.querySelector(`#p-vol-${uid}`);
+          let gainNode = null;
           volSlider.addEventListener("input", (e) => {
-            ws.setVolume(parseFloat(e.target.value));
+            let val = parseFloat(e.target.value);
+            if (val <= 1) {
+              ws.setVolume(val);
+              if (gainNode) gainNode.gain.value = 1;
+            } else {
+              ws.setVolume(1);
+              if (!gainNode) {
+                if (!window.sfxAudioCtx)
+                  window.sfxAudioCtx = new (
+                    window.AudioContext || window.webkitAudioContext
+                  )();
+                if (window.sfxAudioCtx.state === "suspended")
+                  window.sfxAudioCtx.resume();
+                const audioEl = ws.getMediaElement();
+                const mediaSource =
+                  window.sfxAudioCtx.createMediaElementSource(audioEl);
+                gainNode = window.sfxAudioCtx.createGain();
+                mediaSource.connect(gainNode);
+                gainNode.connect(window.sfxAudioCtx.destination);
+              }
+              gainNode.gain.value = val;
+            }
           });
           volSlider.addEventListener("dblclick", (e) => {
             e.target.value = 1;
             ws.setVolume(1);
+            if (gainNode) gainNode.gain.value = 1;
           });
 
           const thumbBtn = item.querySelector(`#p-drag-icon-${uid}`);
