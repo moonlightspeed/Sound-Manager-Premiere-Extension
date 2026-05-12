@@ -366,6 +366,15 @@ document.addEventListener("DOMContentLoaded", function () {
   let isDeleting = false;
   searchInput.addEventListener("keydown", (e) => {
     isDeleting = e.key === "Backspace" || e.key === "Delete";
+    if (e.key === "Tab") {
+      e.preventDefault(); // Chặn nhảy sang element khác
+      // Đẩy con trỏ về cuối cùng để chốt chữ đang được bôi đen (autocomplete)
+      searchInput.setSelectionRange(
+        searchInput.value.length,
+        searchInput.value.length,
+      );
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       let term = searchInput.value.trim();
